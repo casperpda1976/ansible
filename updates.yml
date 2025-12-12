@@ -1,5 +1,5 @@
 ---
-- name: Update any Linux system (show updated packages)
+- name: Update any Linux system and show updated packages
   hosts: all
   become: yes
   gather_facts: yes
@@ -9,82 +9,87 @@
 
   tasks:
 
-    # ============================================
-    # Debian / Ubuntu
-    # ============================================
-    - name: Update package cache (APT)
+    # =======================================================
+    # Debian / Ubuntu (APT)
+    # =======================================================
+    - name: Update APT cache
       apt:
         update_cache: yes
       when: ansible_os_family == "Debian"
 
-    - name: Perform full upgrade (APT)
+    - name: Upgrade APT packages
       apt:
         upgrade: full
-      register: debian_upgrade
+      register: apt_upgrade
       when: ansible_os_family == "Debian"
 
-    - name: Set updated package list (Debian)
+    - name: Extract updated package list (Debian/Ubuntu)
       set_fact:
-        updated_packages: "{{ debian_upgrade.changes.packages | default([]) }}"
-      when: ansible_os_family == "Debian"
+        updated_packages: "{{ apt_upgrade.stdout_lines | default([]) }}"
+      when: apt_upgrade is defined
 
-    # ============================================
-    # RHEL / Rocky / Alma / CentOS
-    # ============================================
-    - name: Update all packages (DNF/YUM)
+
+    # =======================================================
+    # RHEL / Rocky / Alma / CentOS (DNF/YUM)
+    # =======================================================
+    - name: Update DNF/YUM packages
       dnf:
         name: "*"
         state: latest
-      register: rhel_upgrade
+      register: dnf_upgrade
       when: ansible_os_family == "RedHat"
 
-    - name: Set updated package list (RHEL)
+    - name: Extract updated package list (RHEL-based)
       set_fact:
-        updated_packages: "{{ rhel_upgrade.changes | default([]) }}"
-      when: ansible_os_family == "RedHat"
+        updated_packages: "{{ dnf_upgrade.results | map(attribute='name') | list | default([]) }}"
+      when: dnf_upgrade is defined
 
-    # ============================================
-    # SUSE / openSUSE
-    # ============================================
-    - name: Update packages (Zypper)
+
+    # =======================================================
+    # SUSE / openSUSE (Zypper)
+    # =======================================================
+    - name: Update Zypper packages
       zypper:
         name: "*"
         state: latest
-      register: suse_upgrade
+      register: zypper_upgrade
       when: ansible_os_family == "Suse"
 
-    - name: Set updated package list (SUSE)
+    - name: Extract updated package list (SUSE)
       set_fact:
-        updated_packages: "{{ suse_upgrade.changes | default([]) }}"
-      when: ansible_os_family == "Suse"
+        updated_packages: "{{ zypper_upgrade.stdout_lines | default([]) }}"
+      when: zypper_upgrade is defined
 
-    # ============================================
-    # Arch Linux
-    # ============================================
-    - name: Update Arch Linux packages (pacman)
+
+    # =======================================================
+    # Arch Linux (pacman)
+    # =======================================================
+    - name: Update Pacman packages
       pacman:
         update_cache: yes
         upgrade: yes
-      register: arch_upgrade
+      register: pacman_upgrade
       when: ansible_os_family == "Archlinux"
 
-    - name: Set updated package list (Arch)
+    - name: Extract updated package list (Arch)
       set_fact:
-        updated_packages: "{{ arch_upgrade.packages | default([]) }}"
-      when: ansible_os_family == "Archlinux"
+        updated_packages: "{{ pacman_upgrade.packages | default([]) }}"
+      when: pacman_upgrade is defined
 
-    # ============================================
+
+    # =======================================================
     # Show Updated Packages
-    # ============================================
+    # =======================================================
     - name: Show updated packages
       debug:
         msg: "{{ updated_packages | default([]) }}"
 
-    # ============================================
-    # Optional: Reboot if required
-    # ============================================
+    # =======================================================
+    # Reboot if required
+    # =======================================================
     - name: Reboot if required
       reboot:
-        msg: "Rebooting after system update"
+        msg: "Rebooting after updates"
         reboot_timeout: 600
       when: ansible_reboot_required | default(false)
+
