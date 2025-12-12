@@ -28,55 +28,7 @@
         updated_packages: "{{ apt_upgrade.stdout_lines | default([]) }}"
       when: apt_upgrade is defined
 
-
-    # =======================================================
-    # RHEL / Rocky / Alma / CentOS (DNF/YUM)
-    # =======================================================
-    - name: Update DNF/YUM packages
-      dnf:
-        name: "*"
-        state: latest
-      register: dnf_upgrade
-      when: ansible_os_family == "RedHat"
-
-    - name: Extract updated package list (RHEL-based)
-      set_fact:
-        updated_packages: "{{ dnf_upgrade.results | map(attribute='name') | list | default([]) }}"
-      when: dnf_upgrade is defined
-
-
-    # =======================================================
-    # SUSE / openSUSE (Zypper)
-    # =======================================================
-    - name: Update Zypper packages
-      zypper:
-        name: "*"
-        state: latest
-      register: zypper_upgrade
-      when: ansible_os_family == "Suse"
-
-    - name: Extract updated package list (SUSE)
-      set_fact:
-        updated_packages: "{{ zypper_upgrade.stdout_lines | default([]) }}"
-      when: zypper_upgrade is defined
-
-
-    # =======================================================
-    # Arch Linux (pacman)
-    # =======================================================
-    - name: Update Pacman packages
-      pacman:
-        update_cache: yes
-        upgrade: yes
-      register: pacman_upgrade
-      when: ansible_os_family == "Archlinux"
-
-    - name: Extract updated package list (Arch)
-      set_fact:
-        updated_packages: "{{ pacman_upgrade.packages | default([]) }}"
-      when: pacman_upgrade is defined
-
-
+ 
     # =======================================================
     # Show Updated Packages
     # =======================================================
