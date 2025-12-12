@@ -1,52 +1,88 @@
 ---
-- name: Update any Linux system
+- name: Update any Linux system (show updated packages)
   hosts: all
   become: yes
   gather_facts: yes
 
+  vars:
+    updated_packages: []
+
   tasks:
 
-    # -----------------------------------------
-    # Debian/Ubuntu - APT
-    # -----------------------------------------
-    - name: Update Debian/Ubuntu systems
+    # ============================================
+    # Debian / Ubuntu
+    # ============================================
+    - name: Update package cache (APT)
       apt:
         update_cache: yes
-        upgrade: full
-        autoremove: yes
-        autoclean: yes
       when: ansible_os_family == "Debian"
 
-    # -----------------------------------------
-    # RHEL/CentOS/Rocky/Alma - YUM/DNF
-    # -----------------------------------------
-    - name: Update RHEL-based systems
+    - name: Perform full upgrade (APT)
+      apt:
+        upgrade: full
+      register: debian_upgrade
+      when: ansible_os_family == "Debian"
+
+    - name: Set updated package list (Debian)
+      set_fact:
+        updated_packages: "{{ debian_upgrade.changes.packages | default([]) }}"
+      when: ansible_os_family == "Debian"
+
+    # ============================================
+    # RHEL / Rocky / Alma / CentOS
+    # ============================================
+    - name: Update all packages (DNF/YUM)
       dnf:
         name: "*"
         state: latest
+      register: rhel_upgrade
       when: ansible_os_family == "RedHat"
 
-    # -----------------------------------------
+    - name: Set updated package list (RHEL)
+      set_fact:
+        updated_packages: "{{ rhel_upgrade.changes | default([]) }}"
+      when: ansible_os_family == "RedHat"
+
+    # ============================================
     # SUSE / openSUSE
-    # -----------------------------------------
-    - name: Update SUSE-based systems
+    # ============================================
+    - name: Update packages (Zypper)
       zypper:
         name: "*"
         state: latest
+      register: suse_upgrade
       when: ansible_os_family == "Suse"
 
-    # -----------------------------------------
+    - name: Set updated package list (SUSE)
+      set_fact:
+        updated_packages: "{{ suse_upgrade.changes | default([]) }}"
+      when: ansible_os_family == "Suse"
+
+    # ============================================
     # Arch Linux
-    # -----------------------------------------
-    - name: Update Arch Linux systems
+    # ============================================
+    - name: Update Arch Linux packages (pacman)
       pacman:
         update_cache: yes
         upgrade: yes
+      register: arch_upgrade
       when: ansible_os_family == "Archlinux"
 
-    # -----------------------------------------
+    - name: Set updated package list (Arch)
+      set_fact:
+        updated_packages: "{{ arch_upgrade.packages | default([]) }}"
+      when: ansible_os_family == "Archlinux"
+
+    # ============================================
+    # Show Updated Packages
+    # ============================================
+    - name: Show updated packages
+      debug:
+        msg: "{{ updated_packages | default([]) }}"
+
+    # ============================================
     # Optional: Reboot if required
-    # -----------------------------------------
+    # ============================================
     - name: Reboot if required
       reboot:
         msg: "Rebooting after system update"
